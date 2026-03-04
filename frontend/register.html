@@ -180,6 +180,8 @@
     const email = document.getElementById("email").value.trim();
     const phone = document.getElementById("phone").value.trim();
     const password = document.getElementById("password").value.trim();
+    console.log("Registering user:", { name, email, phone, password });
+    alert("Registering user: " + JSON.stringify({ name, email, phone, password }));
 
     if (!name || !email || !phone || !password) {
       showMessage("register-msg", "Please fill all fields", true);
@@ -187,19 +189,21 @@
     }
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('http://localhost:8080/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name, email, phone, password })
+        
       });
 
       const data = await response.json();
-
+       alert("Received response: " + data);
       if (response.ok) {
         // Store token and user data
         localStorage.setItem('token', data.token);
+        alert("Registration successful! Token: " + data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         showMessage("register-msg", "Registration successful!", false);
         setTimeout(() => window.location.href = 'index.html', 1200);
