@@ -1,155 +1,385 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>AAGAM - Quick Delivery</title>
+<title>AAGAM - Select Location</title>
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-  body{font-family:sans-serif;margin:0;padding:0;background:#f8f9fa;}
-  #locationPage{max-width:420px;margin:0 auto;padding:20px;background:white;min-height:100vh;text-align:center;}
-  input, button{font-size:16px;padding:12px;margin:5px 0;width:100%;border-radius:8px;border:1px solid #ddd;}
-  #map{height:300px;margin:10px 0;}
-  #suggestions{border:1px solid #ccc;background:white;max-height:150px;overflow-y:auto;text-align:left;position:absolute;width:calc(100% - 40px);z-index:1000;}
-  #suggestions div{padding:8px;cursor:pointer;}
-  #suggestions div:hover{background:#f0f0f0;}
-  #addressModal{position:fixed;top:10%;left:50%;transform:translateX(-50%);background:white;padding:20px;max-width:400px;border-radius:12px;display:none;z-index:2000;}
-  .modal-header{font-weight:600;margin-bottom:10px;font-size:18px;text-align:center;}
-  .modal-body{display:flex;flex-direction:column;gap:10px;}
-  .save-btn{background:#00c853;color:white;border:none;padding:12px;font-weight:600;border-radius:10px;cursor:pointer;}
+
+body{
+font-family:sans-serif;
+margin:0;
+background:#f8f9fa;
+}
+
+#locationPage{
+max-width:420px;
+margin:auto;
+padding:20px;
+background:white;
+min-height:100vh;
+text-align:center;
+}
+
+input,button{
+font-size:16px;
+padding:12px;
+margin:5px 0;
+width:100%;
+border-radius:8px;
+border:1px solid #ddd;
+}
+
+#map{
+height:300px;
+margin:10px 0;
+}
+
+#suggestions{
+border:1px solid #ccc;
+background:white;
+max-height:150px;
+overflow-y:auto;
+position:absolute;
+width:calc(100% - 40px);
+z-index:1000;
+}
+
+#suggestions div{
+padding:8px;
+cursor:pointer;
+}
+
+#suggestions div:hover{
+background:#f0f0f0;
+}
+
+#addressModal{
+position:fixed;
+top:10%;
+left:50%;
+transform:translateX(-50%);
+background:white;
+padding:20px;
+max-width:400px;
+border-radius:12px;
+display:none;
+z-index:2000;
+box-shadow:0 5px 20px rgba(0,0,0,0.3);
+}
+
+.modal-header{
+font-weight:600;
+margin-bottom:10px;
+font-size:18px;
+}
+
+.save-btn{
+background:#00c853;
+color:white;
+border:none;
+padding:12px;
+font-weight:600;
+border-radius:10px;
+cursor:pointer;
+}
+
+.error{
+color:red;
+font-size:14px;
+}
+
 </style>
 </head>
+
 <body>
 
 <div id="locationPage">
-  <h1>Select Location</h1>
-  <div style="position:relative;">
-    <input type="text" id="searchAddress" placeholder="Search area, landmark, village..."/>
-    <div id="suggestions"></div>
-  </div>
-  <button id="detectBtn"><i class="fas fa-location-crosshairs"></i> Use my location</button>
-  <p id="statusText">Waiting for your location...</p>
-  <div id="map"></div>
-  <button id="startShoppingBtn" style="display:none;">Confirm Location →</button>
+
+<h2>Select Delivery Location</h2>
+
+<div style="position:relative;">
+<input type="text" id="searchAddress" placeholder="Search area, landmark..."/>
+<div id="suggestions"></div>
 </div>
+
+<button id="detectBtn">
+<i class="fas fa-location-crosshairs"></i> Use My Location
+</button>
+
+<p id="statusText">Waiting for location...</p>
+
+<div id="map"></div>
+
+<button id="startShoppingBtn" style="display:none;">
+Confirm Location →
+</button>
+
+</div>
+
 
 <div id="addressModal">
-  <div class="modal-header">Add Address Details</div>
-  <div class="modal-body">
-    <input type="text" id="doorNo" placeholder="Door / House Number"/>
-    <input type="text" id="building" placeholder="Building Name"/>
-    <input type="text" id="landmark" placeholder="Landmark (optional)"/>
-    <input type="text" id="pincode" placeholder="Pincode"/>
-    <input type="text" id="city" placeholder="City"/>
-    <input type="text" id="state" placeholder="State"/>
-    <input type="text" id="receiverName" placeholder="Receiver Name"/>
-    <input type="text" id="mobile" placeholder="Mobile Number"/>
-    <button id="saveBtn" class="save-btn">Save & Continue</button>
-  </div>
+
+<div class="modal-header">Add Address Details</div>
+
+<div class="error" id="error"></div>
+
+<input type="text" id="doorNo" placeholder="House Number *"/>
+<input type="text" id="building" placeholder="Building Name *"/>
+<input type="text" id="landmark" placeholder="Landmark"/>
+
+<input type="text" id="pincode" placeholder="Pincode *"/>
+<input type="text" id="city" placeholder="City"/>
+<input type="text" id="state" placeholder="State"/>
+
+<input type="text" id="receiverName" placeholder="Receiver Name"/>
+<input type="text" id="mobile" placeholder="Mobile Number"/>
+
+<button id="saveBtn" class="save-btn">Save Address</button>
+
 </div>
 
+
 <script>
-let map, marker;
-let selectedLocation = null;
 
-const searchInput = document.getElementById('searchAddress');
-const detectBtn = document.getElementById('detectBtn');
-const statusText = document.getElementById('statusText');
-const startShoppingBtn = document.getElementById('startShoppingBtn');
-const suggestionsDiv = document.getElementById('suggestions');
+const API_URL="http://localhost:8080/api/addresses"
 
-const doorNoInput = document.getElementById('doorNo');
-const buildingInput = document.getElementById('building');
-const landmarkInput = document.getElementById('landmark');
-const pincodeInput = document.getElementById('pincode');
-const cityInput = document.getElementById('city');
-const stateInput = document.getElementById('state');
-const receiverInput = document.getElementById('receiverName');
-const mobileInput = document.getElementById('mobile');
-const addressModal = document.getElementById('addressModal');
-const saveBtn = document.getElementById('saveBtn');
+let map,marker
+let selectedLocation=null
 
-function initMap(lat=17.6860, lng=83.0088){
-  if(!map){
-    map = L.map('map').setView([lat, lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution:'&copy; OpenStreetMap contributors'
-    }).addTo(map);
-  } else { map.setView([lat,lng],15); }
+const searchInput=document.getElementById("searchAddress")
+const suggestionsDiv=document.getElementById("suggestions")
+const detectBtn=document.getElementById("detectBtn")
+const statusText=document.getElementById("statusText")
+const startShoppingBtn=document.getElementById("startShoppingBtn")
 
-  if(!marker){
-    marker = L.marker([lat,lng], {draggable:true}).addTo(map);
-    marker.on('dragend', () => {
-      const pos = marker.getLatLng();
-      reverseGeocode(pos.lat,pos.lng);
-    });
-  } else { marker.setLatLng([lat,lng]); }
+const doorNo=document.getElementById("doorNo")
+const building=document.getElementById("building")
+const landmark=document.getElementById("landmark")
+const pincode=document.getElementById("pincode")
+const city=document.getElementById("city")
+const state=document.getElementById("state")
+const receiver=document.getElementById("receiverName")
+const mobile=document.getElementById("mobile")
+
+const addressModal=document.getElementById("addressModal")
+const errorDiv=document.getElementById("error")
+
+function initMap(lat=17.6860,lng=83.0088){
+
+if(!map){
+
+map=L.map('map').setView([lat,lng],15)
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+attribution:'© OpenStreetMap'
+}).addTo(map)
+
+}else{
+
+map.setView([lat,lng],15)
+
 }
 
-function reverseGeocode(lat, lon){
-  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-    .then(res=>res.json())
-    .then(data=>{
-      selectedLocation = { lat, lon, display:data.display_name };
-      statusText.textContent = data.display_name;
-      const addr = data.address || {};
-      cityInput.value = addr.city || addr.town || addr.village || '';
-      stateInput.value = addr.state || '';
-      pincodeInput.value = addr.postcode || '';
-    });
+if(!marker){
+
+marker=L.marker([lat,lng],{draggable:true}).addTo(map)
+
+marker.on("dragend",()=>{
+
+const pos=marker.getLatLng()
+reverseGeocode(pos.lat,pos.lng)
+
+})
+
+}else{
+
+marker.setLatLng([lat,lng])
+
 }
 
-// Detect current location
-detectBtn.addEventListener('click',()=>{
-  if(!navigator.geolocation){ statusText.textContent="Geolocation not supported"; return; }
-  detectBtn.disabled=true; detectBtn.textContent="Detecting...";
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const lat=pos.coords.latitude, lng=pos.coords.longitude;
-    initMap(lat,lng);
-    reverseGeocode(lat,lng);
-    startShoppingBtn.style.display="block";
-    detectBtn.disabled=false; detectBtn.innerHTML='<i class="fas fa-location-crosshairs"></i> Use my location';
-  },()=>{statusText.textContent="Permission denied"; detectBtn.disabled=false; detectBtn.innerHTML='<i class="fas fa-location-crosshairs"></i> Use my location';},
-  { enableHighAccuracy:true, timeout:15000 });
-});
+}
 
-// Autocomplete suggestions
-let debounceTimeout;
-searchInput.addEventListener('input',()=>{
-  clearTimeout(debounceTimeout);
-  const query = searchInput.value.trim();
-  suggestionsDiv.innerHTML='';
-  if(!query) return;
-  debounceTimeout=setTimeout(async ()=>{
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`);
-    const data = await res.json();
-    data.forEach(item=>{
-      const div = document.createElement('div');
-      div.textContent = item.display_name;
-      div.addEventListener('click', ()=>{
-        const lat=parseFloat(item.lat), lon=parseFloat(item.lon);
-        initMap(lat,lon);
-        reverseGeocode(lat,lon);
-        suggestionsDiv.innerHTML='';
-        startShoppingBtn.style.display="block";
-      });
-      suggestionsDiv.appendChild(div);
-    });
-  },300);
-});
+function reverseGeocode(lat,lon){
 
-// Confirm and show modal
-startShoppingBtn.addEventListener('click',()=>{ addressModal.style.display='block'; });
-saveBtn.addEventListener('click',()=>{
-  addressModal.style.display='none';
-  alert(`Address Saved:
-${doorNoInput.value}, ${buildingInput.value}, ${landmarkInput.value}
-${cityInput.value}, ${stateInput.value}, ${pincodeInput.value}
-Receiver: ${receiverInput.value}, Mobile: ${mobileInput.value}`);
-});
+fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+
+.then(res=>res.json())
+
+.then(data=>{
+
+selectedLocation={
+latitude:lat,
+longitude:lon,
+display:data.display_name
+}
+
+statusText.textContent=data.display_name
+
+const addr=data.address||{}
+
+city.value=addr.city||addr.town||addr.village||""
+state.value=addr.state||""
+pincode.value=addr.postcode||""
+
+})
+
+}
+
+
+detectBtn.addEventListener("click",()=>{
+
+if(!navigator.geolocation){
+
+statusText.textContent="Geolocation not supported"
+return
+
+}
+
+navigator.geolocation.getCurrentPosition(pos=>{
+
+const lat=pos.coords.latitude
+const lng=pos.coords.longitude
+
+initMap(lat,lng)
+
+reverseGeocode(lat,lng)
+
+startShoppingBtn.style.display="block"
+
+})
+
+})
+
+
+let debounce
+
+searchInput.addEventListener("input",()=>{
+
+clearTimeout(debounce)
+
+const query=searchInput.value.trim()
+
+if(!query) return
+
+debounce=setTimeout(async()=>{
+
+const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5`)
+
+const data=await res.json()
+
+suggestionsDiv.innerHTML=""
+
+data.forEach(item=>{
+
+const div=document.createElement("div")
+
+div.textContent=item.display_name
+
+div.onclick=()=>{
+
+const lat=parseFloat(item.lat)
+const lon=parseFloat(item.lon)
+
+initMap(lat,lon)
+
+reverseGeocode(lat,lon)
+
+suggestionsDiv.innerHTML=""
+
+startShoppingBtn.style.display="block"
+
+}
+
+suggestionsDiv.appendChild(div)
+
+})
+
+},400)
+
+})
+
+
+startShoppingBtn.addEventListener("click",()=>{
+
+addressModal.style.display="block"
+
+})
+
+
+document.getElementById("saveBtn").addEventListener("click",()=>{
+
+errorDiv.textContent=""
+
+if(!doorNo.value || !building.value || !pincode.value){
+
+errorDiv.textContent="House Number, Building Name and Pincode are mandatory"
+
+return
+
+}
+
+const token=localStorage.getItem("token")
+
+fetch(API_URL,{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+token
+},
+
+body:JSON.stringify({
+
+houseNumber:doorNo.value,
+buildingName:building.value,
+landmark:landmark.value,
+city:city.value,
+state:state.value,
+pincode:pincode.value,
+latitude:selectedLocation.latitude,
+longitude:selectedLocation.longitude,
+receiverName:receiver.value,
+mobile:mobile.value
+
+})
+
+})
+
+.then(res=>{
+
+if(!res.ok){
+
+throw new Error("Failed to save address")
+
+}
+
+return res.json()
+
+})
+
+.then(data=>{
+
+alert("Address Saved Successfully")
+
+window.location.href="index.html"
+
+})
+
+.catch(err=>{
+
+errorDiv.textContent=err.message
+
+})
+
+})
+
 </script>
 
 </body>
