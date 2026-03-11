@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAGAM Admin • Products</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f5f6fa;
+margin:0;
+}
+
+.layout{display:flex}
+
+.sidebar{
+width:220px;
+background:white;
+height:100vh;
+padding:20px;
+border-right:1px solid #eee;
+}
+
+.sidebar h2{color:#6b46c1}
+
+.sidebar a{
+display:block;
+padding:10px;
+text-decoration:none;
+color:#444;
+}
+
+
+
+.main{
+flex:1;
+padding:20px;
+}
+
+.topbar{
+display:flex;
+justify-content:space-between;
+margin-bottom:20px;
+}
+
+button{
+background:#6b46c1;
+color:white;
+border:none;
+padding:8px 14px;
+border-radius:6px;
+cursor:pointer;
+}
+
+table{
+width:100%;
+background:white;
+border-collapse:collapse;
+}
+
+th,td{
+padding:12px;
+border-bottom:1px solid #eee;
+text-align:left;
+}
+
+
+table th {
+  background: #6b46c1;
+  color: white;
+  font-weight: bold;
+}
+
+table tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+table tr:hover {
+  background: #f0e7ff;
+}
+
+table button {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+table img {
+  border-radius: 4px;
+}
+
+.modal-overlay{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.5);
+display:none;
+align-items:center;
+justify-content:center;
+}
+
+.modal-overlay.show{display:flex}
+
+.modal{
+background:white;
+width:550px;
+border-radius:8px;
+}
+
+.modal-body{
+padding:20px;
+}
+
+.form-group{margin-bottom:10px}
+
+input,select{
+width:100%;
+padding:6px;
+}
+
+.variant-row{
+display:flex;
+gap:6px;
+margin-bottom:6px;
+}
+
+.variant-row input,
+.variant-row select{
+flex:1;
+}
+
+img.preview{
+width:60px;
+margin-top:8px;
+display:none;
+}
+
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  max-height: 150px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.autocomplete-suggestion {
+  padding: 6px;
+  cursor: pointer;
+}
+
+.autocomplete-suggestion:hover {
+  background: #f0f0f0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="layout">
+
+<div class="sidebar">
+<h2>AAGAM</h2>
+<a href="#">Products</a>
+<a href="#">Orders</a>
+<a href="#">Inventory</a>
+</div>
+
+<div class="main">
+
+<div class="topbar">
+<h2>Products</h2>
+<button onclick="openModal()">+ Add Product</button>
+</div>
+
+<table>
+
+<thead>
+<tr>
+<th>ID</th>
+<th>Image</th>
+<th>Name</th>
+<th>Category</th>
+<th>Variants</th>
+<th>Status</th>
+<th>Visible</th>
+<th>Remove</th>
+</tr>
+</thead>
+
+<tbody id="productsTable"></tbody>
+
+
+
+</table>
+
+<div style="margin-top: 12px; text-align: right;">
+  <button onclick="saveAllProducts()" style="background:#38a169; color:white; padding:8px 14px; border:none; border-radius:6px; cursor:pointer;">
+    Save All Products
+  </button>
+</div>
+
+</div>
+</div>
+
+
+<!-- MODAL -->
+
+<div class="modal-overlay" id="modal">
+
+<div class="modal">
+
+<div class="modal-body">
+
+<h3>Add Product</h3>
+
+<div class="form-group" style="position:relative;">
+  <label>Product Name</label>
+  <input id="name">
+  <div id="nameSuggestions" class="autocomplete-suggestions"></div>
+</div>
+
+<div class="form-group">
+  <label>Category</label>
+  <select id="categorySelect"></select>
+  <button type="button" class="btn" onclick="addCategory()">+ Category</button>
+</div>
+
+<div class="form-group">
+<label>Product Image</label>
+<input type="file" id="imageUpload">
+<img id="preview" class="preview">
+</div>
+
+<div class="form-group">
+<label>Status</label>
+<select id="status">
+<option value="IN_STOCK">In Stock</option>
+<option value="OUT_OF_STOCK">Out Of Stock</option>
+</select>
+</div>
+
+<div class="form-group">
+
+<label>Variants</label>
+
+<div id="variantsContainer">
+
+<div class="variant-row">
+
+<input placeholder="Weight" class="variant-weight">
+
+<select class="variant-unit"></select>
+
+<input placeholder="Price" type="number" class="variant-price">
+
+<input placeholder="Stock" type="number" class="variant-stock">
+
+<button type="button" onclick="removeVariant(this)">Remove</button>
+</div>
+
+</div>
+
+<button onclick="addVariant()">+ Variant</button>
+
+</div>
+
+<br>
+
+<button onclick="addProduct()">Add Product</button>
+<button onclick="closeModal()">Close</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+
+
+
+
+
+let products=[]
+let idCounter=1
+let imageData=""
+// Global arrays
+let units = [];
+let categories = [];
+
+// Load units from backend with JWT
+async function loadUnits() {
+    try {
+        const token = localStorage.getItem('jwtToken');
+        if (!token) throw new Error("JWT token missing");
+
+        const res = await fetch('http://localhost:8080/api/units', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+        units = await res.json(); // fill global units
+        console.log("Units loaded:", units);
+       // alert("Units loaded: " + JSON.stringify(units));
+    } catch (err) {
+        console.error("Failed to load units:", err);
+        alert("Error loading units: " + err.message);
+    }
+}
+
+// Load categories from backend with JWT
+async function loadCategories() {
+    try {
+        const token = localStorage.getItem('jwtToken');
+        if (!token) throw new Error("JWT token missing");
+
+        const res = await fetch('http://localhost:8080/api/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+        categories = await res.json(); // fill global categories
+        console.log("Categories loaded:", categories);
+
+        const select = document.getElementById("categorySelect");
+        select.innerHTML = "";
+        categories.forEach(cat => {
+            let option = document.createElement("option");
+            option.value = cat.name;
+            option.textContent = cat.name;
+            select.appendChild(option);
+        });
+
+        //alert("Categories loaded: " + JSON.stringify(categories));
+    } catch (err) {
+        console.error("Failed to load categories:", err);
+        alert("Error loading categories: " + err.message);
+    }
+}
+
+// Run on page load
+document.addEventListener("DOMContentLoaded", async () => {
+    const token = localStorage.getItem("jwtToken");
+    const role = localStorage.getItem("userRole");
+
+    if (!token || role !== "ADMIN") {
+        alert("Access denied. Admin only!");
+        window.location.href = '/login.html'; // redirect non-admins
+    } else {
+        //alert("Welcome Admin! Loading product data...");
+        await loadUnits();
+        await loadCategories();
+    }
+});
+
+
+/* OPEN MODAL */
+
+function openModal() {
+  document.getElementById("modal").classList.add("show");
+
+  // Reset image preview
+  imageData = "";
+  let preview = document.getElementById("preview");
+  preview.src = "";
+  preview.style.display = "none";
+
+  // Reset other fields if needed
+  document.getElementById("name").value = "";
+  document.getElementById("status").value = "IN_STOCK";
+  document.getElementById("categorySelect").value = "";
+  document.getElementById("variantsContainer").innerHTML = "";
+  
+  // Load units for variants
+  loadUnits();
+}
+
+/* CLOSE MODAL */
+
+function closeModal(){
+
+document.getElementById("modal").classList.remove("show")
+
+}
+
+/* IMAGE UPLOAD */
+
+document.getElementById("imageUpload").addEventListener("change",function(){
+
+let file=this.files[0]
+
+if(!file) return
+
+let reader=new FileReader()
+
+reader.onload=function(e){
+
+imageData=e.target.result
+
+let img=document.getElementById("preview")
+
+img.src=imageData
+
+img.style.display="block"
+
+}
+
+reader.readAsDataURL(file)
+
+})
+
+
+
+/* ADD VARIANT */
+
+// Array of units loaded from backend
+
+function addVariant(weight = "", unit = "", price = "", stock = "") {
+  let container = document.getElementById("variantsContainer");
+
+  // Create variant row
+  let row = document.createElement("div");
+  row.className = "variant-row";
+
+  row.innerHTML = `
+    <input placeholder="Weight" class="variant-weight" value="${weight}">
+    <select class="variant-unit"></select>
+    <input placeholder="Price" class="variant-price" type="number" value="${price}">
+    <input placeholder="Stock" class="variant-stock" type="number" value="${stock}">
+    <button type="button" onclick="removeVariant(this)">Remove</button>
+  `;
+
+  container.appendChild(row);
+
+  // Fill unit dropdown from backend
+  let select = row.querySelector(".variant-unit");
+  units.forEach(u => {
+    let option = document.createElement("option");
+    option.value = u.name;
+    option.textContent = u.name;
+    if (unit === u.name) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+
+/* REMOVE VARIANT */
+
+function removeVariant(btn){
+
+btn.parentElement.remove()
+
+}
+
+
+
+/* ADD PRODUCT */
+
+function addProduct(){
+
+let variants=[]
+
+document.querySelectorAll(".variant-row").forEach(row=>{
+
+variants.push({
+
+weight:row.querySelector(".variant-weight").value,
+
+unit:row.querySelector(".variant-unit").value,
+
+price:row.querySelector(".variant-price").value,
+
+stock:row.querySelector(".variant-stock").value
+
+})
+
+})
+
+let product={
+
+id:idCounter++,
+
+name:document.getElementById("name").value,
+
+category: document.getElementById("categorySelect").value,
+
+status:document.getElementById("status").value,
+
+variants:variants,
+
+image:imageData,
+visible: true
+
+}
+
+products.push(product)
+
+renderProducts()
+
+closeModal()
+
+}
+
+/* RENDER TABLE */
+
+function renderProducts(){
+
+let table=document.getElementById("productsTable")
+
+table.innerHTML=""
+
+products.forEach((p,pIndex)=>{
+
+let variantsHTML=p.variants.map((v,vIndex)=>`
+
+<div>
+
+${v.weight}${v.unit} - ₹${v.price} (Stock:${v.stock})
+
+<button onclick="editVariant(${pIndex},${vIndex})">Edit</button>
+
+<button onclick="deleteVariant(${pIndex},${vIndex})">Remove</button>
+
+</div>
+
+`).join("")
+
+table.innerHTML += `
+<tr>
+  <td>${p.id}</td>
+  <td><img src="${p.image}" width="40"></td>
+  <td>${p.name}</td>
+  <td>${p.category}</td>
+  <td>
+    ${p.variants.map((v, vIndex) => `
+      <div>
+        ${v.weight}${v.unit} - ₹${v.price} (Stock: ${v.stock})
+        <button onclick="editVariant(${pIndex},${vIndex})">Edit</button>
+        <button onclick="deleteVariant(${pIndex},${vIndex})">Remove</button>
+      </div>
+    `).join("")}
+  </td>
+  <td>${p.status}</td>
+  <td>
+    <input type="checkbox" ${p.visible ? "checked" : ""} onchange="toggleVisible(${pIndex})">
+  </td>
+  <td>
+    <button onclick="deleteProduct(${pIndex})" style="background:#e53e3e;">Remove Product</button>
+  </td>
+</tr>
+`;
+
+})
+
+}
+
+function editVariant(pIndex,vIndex){
+
+let variant = products[pIndex].variants[vIndex]
+
+let price = prompt("Edit Price",variant.price)
+let stock = prompt("Edit Stock",variant.stock)
+
+if(price!==null) variant.price=price
+if(stock!==null) variant.stock=stock
+
+renderProducts()
+
+}
+
+
+function deleteVariant(pIndex,vIndex){
+
+products[pIndex].variants.splice(vIndex,1)
+
+renderProducts()
+
+}
+
+function toggleVisible(index){
+
+products[index].visible=!products[index].visible
+
+}
+
+
+
+async function addCategory() {
+  let name = prompt("Enter new category");
+  if (!name) return;
+  if (categories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    alert("Category already exists!");
+    return;
+  }
+   const token = localStorage.getItem('jwtToken');
+
+
+    
+  const response= await fetch('http://localhost:8080/api/categories', {
+    method: "POST",
+    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({name}),
+
+  });
+
+  await loadCategories();
+}
+
+async function checkProductDuplicate(name) {
+  if (!name) return false;
+  let res = await fetch(`/api/products?name=${encodeURIComponent(name)}`);
+  let data = await res.json();
+  return data.length > 0;
+}
+
+// Autocomplete for product names
+document.getElementById("name").addEventListener("input", async function() {
+  let val = this.value;
+  let suggestionBox = document.getElementById("nameSuggestions");
+  suggestionBox.innerHTML = "";
+  if (!val) return;
+  let res = await fetch(`/api/products?search=${encodeURIComponent(val)}`);
+  let data = await res.json();
+  data.forEach(p => {
+    let div = document.createElement("div");
+    div.className = "autocomplete-suggestion";
+    div.textContent = p.name;
+    div.onclick = () => { document.getElementById("name").value = p.name; suggestionBox.innerHTML = ""; };
+    suggestionBox.appendChild(div);
+  });
+});
+
+
+function deleteProduct(index) {
+  if (confirm("Are you sure you want to remove this product?")) {
+    products.splice(index, 1);
+    renderProducts();
+  }
+}
+
+async function saveAllProducts() {
+  if(products.length === 0){
+    alert("No products to save!");
+    return;
+  }
+
+  try {
+    let res = await fetch("/api/products/bulk", {  // your backend endpoint
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(products)
+    });
+
+    if(res.ok){
+      alert("All products saved successfully!");
+    } else {
+      let err = await res.text();
+      alert("Failed to save products: " + err);
+    }
+  } catch(e){
+    console.log(e);
+    alert("Error saving products. Check console for details.");
+  }
+}
+
+</script>
+
+</body>
+</html>

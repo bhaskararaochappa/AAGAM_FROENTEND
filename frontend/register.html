@@ -199,11 +199,11 @@
       });
 
       const data = await response.json();
-       alert("Received response: " + data);
+      // alert("Received response: " + data);
       if (response.ok) {
         // Store token and user data
         localStorage.setItem('token', data.token);
-        alert("Registration successful! Token: " + data.token);
+        //alert("Registration successful! Token: " + data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         showMessage("register-msg", "Registration successful!", false);
         setTimeout(() => window.location.href = 'index.html', 1200);

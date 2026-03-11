@@ -636,6 +636,7 @@ document.addEventListener("DOMContentLoaded", async function() {
 
     try {
         const token = localStorage.getItem("token");
+       // alert("JWT Token: in index.html:  " + token); // for debugging
         if(!token){
             console.error("No JWT token found, redirect to login");
             window.location.href = "login.html"; // optional
@@ -649,7 +650,7 @@ document.addEventListener("DOMContentLoaded", async function() {
             }
         });
        
-        alert("Response status: " + response.status);
+        //alert("Response status: " + response.status);
          // for debugging
 
         if(response.status === 200){

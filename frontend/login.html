@@ -165,41 +165,65 @@
     el.style.display = "block";
   }
 
-  async function login() {
+
+
+
+async function login() {
     const phone = document.getElementById("phone").value.trim();
     const password = document.getElementById("password").value.trim();
 
     if (!phone || !password) {
-      showMessage("login-msg", "Please fill all fields", true);
-      return;
+        showMessage("login-msg", "Please fill all fields", true);
+        return;
     }
 
     try {
-      const response = await fetch('http://localhost:8080/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ phone, password })
-      });
+        const response = await fetch('http://localhost:8080/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, password })
+        });
 
-      const data = await response.json();
+        const contentType = response.headers.get("content-type");
 
-      if (response.ok) {
-        // Store token and user data
-        alert("Login successful! Token: " + data.token);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        showMessage("login-msg", "Login successful!", false);
-        setTimeout(() => window.location.href = 'index.html', 1200);
-      } else {
-        showMessage("login-msg", data.message || "Login failed", true);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      showMessage("login-msg", "Network error. Please try again.", true);
+        // Parse JSON only if content-type is JSON
+        let data = {};
+        if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+            //alert(JSON.stringify(data));
+        } else {
+            const text = await response.text();
+            console.error("Non-JSON response:", text);
+            showMessage("login-msg", "Server returned non-JSON response", true);
+            return;
+        }
+
+        if (response.ok) {
+           
+                const role = Array.isArray(data.role) ? data.role[0] : data.role;
+
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('userRole', role);
+
+             showMessage("login-msg", "Login successful!", false);
+
+              if (role === "ADMIN") {
+                  window.location.href = "addProduct.html";
+              } else {
+               // alert("Welcome " + (data.name || "User") + "! Redirecting to homepage...");
+                  window.location.href = "index.html";
+              }
+        
+
+        } else {
+            showMessage("login-msg", data.message || "Login failed", true);
+        }
+
+    } catch (err) {
+        console.error("Login error:", err);
+        showMessage("login-msg", "Network error or CORS issue", true);
     }
-  }
+}
 </script>
 
 </body>
