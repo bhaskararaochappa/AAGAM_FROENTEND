@@ -298,7 +298,7 @@ let categories = [];
 // Load units from backend with JWT
 async function loadUnits() {
     try {
-        const token = localStorage.getItem('jwtToken');
+        const token = localStorage.getItem('token');
         if (!token) throw new Error("JWT token missing");
 
         const res = await fetch('http://localhost:8080/api/units', {
@@ -319,7 +319,7 @@ async function loadUnits() {
 // Load categories from backend with JWT
 async function loadCategories() {
     try {
-        const token = localStorage.getItem('jwtToken');
+        const token = localStorage.getItem('token');
         if (!token) throw new Error("JWT token missing");
 
         const res = await fetch('http://localhost:8080/api/categories', {
@@ -349,12 +349,14 @@ async function loadCategories() {
 
 // Run on page load
 document.addEventListener("DOMContentLoaded", async () => {
-    const token = localStorage.getItem("jwtToken");
+    const token = localStorage.getItem("token");
     const role = localStorage.getItem("userRole");
+
+    //alert("Token: " + token + "\nRole: " + role);
 
     if (!token || role !== "ADMIN") {
         alert("Access denied. Admin only!");
-        window.location.href = '/login.html'; // redirect non-admins
+        window.location.href = 'login.html'; // redirect non-admins
     } else {
         //alert("Welcome Admin! Loading product data...");
         await loadUnits();
@@ -491,7 +493,7 @@ id:idCounter++,
 
 name:document.getElementById("name").value,
 
-category: document.getElementById("categorySelect").value,
+categoryName: document.getElementById("categorySelect").value,
 
 status:document.getElementById("status").value,
 
@@ -519,7 +521,7 @@ let table=document.getElementById("productsTable")
 table.innerHTML=""
 
 products.forEach((p,pIndex)=>{
-
+//alert("Rendering product category: " + p.category);
 let variantsHTML=p.variants.map((v,vIndex)=>`
 
 <div>
@@ -539,7 +541,7 @@ table.innerHTML += `
   <td>${p.id}</td>
   <td><img src="${p.image}" width="40"></td>
   <td>${p.name}</td>
-  <td>${p.category}</td>
+  <td type="text">${p.categoryName}</td>
   <td>
     ${p.variants.map((v, vIndex) => `
       <div>
@@ -601,7 +603,7 @@ async function addCategory() {
     alert("Category already exists!");
     return;
   }
-   const token = localStorage.getItem('jwtToken');
+   const token = localStorage.getItem('token');
 
 
     
@@ -617,18 +619,23 @@ async function addCategory() {
 
 async function checkProductDuplicate(name) {
   if (!name) return false;
-  let res = await fetch(`/api/products?name=${encodeURIComponent(name)}`);
+  let res = await fetch(`http://localhost:8080/?name=${encodeURIComponent(name)}`);
   let data = await res.json();
   return data.length > 0;
 }
 
 // Autocomplete for product names
 document.getElementById("name").addEventListener("input", async function() {
+   const token = localStorage.getItem('token');
   let val = this.value;
   let suggestionBox = document.getElementById("nameSuggestions");
   suggestionBox.innerHTML = "";
   if (!val) return;
-  let res = await fetch(`/api/products?search=${encodeURIComponent(val)}`);
+  let res = await fetch(`http://localhost:8080/api/products?search=${encodeURIComponent(val)}`, {
+    method: "GET",
+    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+
+});
   let data = await res.json();
   data.forEach(p => {
     let div = document.createElement("div");
@@ -648,17 +655,21 @@ function deleteProduct(index) {
 }
 
 async function saveAllProducts() {
+  alert("Saving products to backend..."+JSON.stringify(products)  );
   if(products.length === 0){
     alert("No products to save!");
     return;
   }
-
+  alert("Sending data to backend: " + products[0].categoryName );
   try {
-    let res = await fetch("/api/products/bulk", {  // your backend endpoint
+   
+    let res = await fetch("http://localhost:8080/api/products/bulk", {  // your backend endpoint
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(products)
+      headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      body: JSON.stringify(products),
+     
     });
+     
 
     if(res.ok){
       alert("All products saved successfully!");

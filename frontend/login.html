@@ -201,6 +201,7 @@ async function login() {
         if (response.ok) {
            
                 const role = Array.isArray(data.role) ? data.role[0] : data.role;
+                localStorage.removeItem('token');
 
                         localStorage.setItem('token', data.token);
                         localStorage.setItem('userRole', role);
@@ -211,6 +212,7 @@ async function login() {
                   window.location.href = "addProduct.html";
               } else {
                // alert("Welcome " + (data.name || "User") + "! Redirecting to homepage...");
+               
                   window.location.href = "index.html";
               }
         
